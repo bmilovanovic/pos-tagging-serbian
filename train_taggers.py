@@ -263,14 +263,7 @@ def save_tagger(model, name):
     output.close()
 
 
-def load_tagger(model, name):
-    # use this to load tagger from file
-    output = open(name, 'wb')
-    dump(model, output, -1)
-    output.close()
-
-
-def train_crf_and_perceptron(train_set, test_set, unseen_set, scores):
+def train_crf_and_perceptron(train_set, test_set, unseen_set, scores, tagset):
     # CRF tagger
     crf_tagger = nltk.tag.CRFTagger()
     crf_tagger.train(train_set, 'model.crf.tagger')
@@ -283,7 +276,7 @@ def train_crf_and_perceptron(train_set, test_set, unseen_set, scores):
     # Perceptron tagger
     perceptron_tagger = nltk.tag.perceptron.PerceptronTagger(load=False)
     perceptron_tagger.train(train_set, nr_iter=10)
-    save_tagger(perceptron_tagger, "perceptron.pkl")
+    save_tagger(perceptron_tagger, "perceptron_{}.pkl".format(tagset['name']))
     evaluate_tagger(perceptron_tagger, test_set, scores['PERCEPTRON'])
     evaluate_tagger(perceptron_tagger, unseen_set, scores['PERCEPTRON-UNSEEN'])
     # Perceptron tagger improved with Brill
@@ -293,12 +286,12 @@ def train_crf_and_perceptron(train_set, test_set, unseen_set, scores):
     pass
 
 
-def benchmark_crf_and_perceptron(train_slices, test_slices, unseen_slice):
+def benchmark_crf_and_perceptron(train_slices, test_slices, unseen_slice, tagset):
     scores = {name: [] for name in TOP_TAGGER_LIST}
     start = timeit.default_timer()
     print('Started benchmarking CRF and Perceptron. ')
     for k in range(0, 10):
-        train_crf_and_perceptron(train_slices[k], test_slices[k], unseen_slice, scores)
+        train_crf_and_perceptron(train_slices[k], test_slices[k], unseen_slice, scores, tagset)
         print('End of the epoch {}/9. Time from the start: {}'.format(k, timeit.default_timer() - start))
     print('Benchmarking CRF and Perceptron finished.')
     return scores
@@ -331,14 +324,14 @@ def evaluate_all_taggers():
 
 
 def evaluate_top_taggers():
-    tagset = smd_pos # Here you select tagset for which you want to evalute top taggers
+    tagset = smd_pos # Here you select tagset for which you want to evaluate top taggers
     input_tagged_sents = parse_sentences(input_data, tagset)
     train_slices, test_slices = split_data_set(input_tagged_sents)
 
     unseen_text = Path('unseen_text.txt').read_text(encoding="utf-8-sig").strip().splitlines()
     unseen_tagged_sents = parse_sentences(unseen_text, tagset)
 
-    top_tagger_scores = benchmark_crf_and_perceptron(train_slices, test_slices, unseen_tagged_sents)
+    top_tagger_scores = benchmark_crf_and_perceptron(train_slices, test_slices, unseen_tagged_sents, tagset)
     print(top_tagger_scores)
 
     avg_tagger_accuracy = average(top_tagger_scores, TOP_TAGGER_LIST)
